@@ -13,6 +13,20 @@ const bcryptSalt = 10;
 const loggedInUser = require('../helpers/middlewares').loggedInUser
 const userIsAdmin = require('../helpers/middlewares').userIsAdmin
 
+const nodemailer = require('nodemailer')
+
+// SMTP 
+let transporter = nodemailer.createTransport({
+  service: 'Gmail',
+  auth: {
+    user: 'tester123.peterpan@gmail.com',
+    pass: '89675rutitgzrvuz'
+  }
+});
+
+
+
+
 router.get('/signup', (req, res, next) => {
   res.render('auth/signup');
 });
@@ -21,14 +35,61 @@ router.get('/signup', (req, res, next) => {
 // POST /signup
 router.post('/signup', (req, res, next) => {
 
-  const salt = bcrypt.genSaltSync(bcryptSalt);
-  const hashPass = bcrypt.hashSync(req.body.password, salt);
+  const email = req.body.email
+  const password = req.body.password
 
-  let user = new User({ username: req.body.username, password: hashPass })
-  user.save().then((theUser) => {
-    req.login(theUser, () => { res.redirect('/') }) // theUser now has an _id because we stored it into the database
+  // creates a 4 digit random token
+  const tokenArr = Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)) // [ 1, 4, 5, 8 ]
+  const token = tokenArr.join(''); // "1458"
+
+  transporter.sendMail({
+    from: '"My Awesome Project " <myawesome@project.com>',
+    to: email,
+    subject: 'Subject',
+    text: `Hey this is the link you need to click: http://localhost:3000/verify-email-link/${token}`,
+    html: `Hey this is the link you need to click: http://localhost:3000/verify-email-link/${token}`
+    // aternatively, send the token itself for the user to type it
+    // text: `Hey this is your token `${token}`,
+    // html: `Hey this is your token `${token}`,
   })
+    .then(() => {
+      const salt = bcrypt.genSaltSync(bcryptSalt);
+      const hashPass = bcrypt.hashSync(req.body.password, salt);
 
+      let user = new User({ email: req.body.email, password: hashPass, token: token })
+      return user.save()
+
+    }).then((theUser) => {
+      req.login(theUser, () => { res.redirect('/') }) // theUser now has an _id because we stored it into the database
+    })
+
+
+
+})
+
+router.get('/verify-email-link/:token', (req, res) => {
+  if (req.user.token === req.params.token) {
+    req.user.verifiedEmail = true
+    req.user.save().then(() => {
+      // more professional : res.redirect and set a flash message before
+      res.send('successfully verified your email')
+    })
+  }
+})
+
+router.get('/verify-email', (req, res) => {
+  res.render('auth/verify')
+})
+
+router.post('/verify-email', (req, res) => {
+  console.log(req.user)
+  if (req.user.token === req.body.token) {
+    req.user.verifiedEmail = true
+    req.user.save().then(() => {
+      // more professional : res.redirect and set a flash message before
+      res.send('successfully verified your email')
+    })
+  }
 })
 
 router.get('/login', (req, res) => {

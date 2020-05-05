@@ -4,12 +4,14 @@ const Schema = mongoose.Schema;
 
 const userSchema = new Schema(
   {
-    username: String,
+    email: String,
     password: String,
     role: {
       type: String, enum: ['admin', 'co-host', 'student']
     },
-    slackID: String
+    slackID: String,
+    verifiedEmail: { type: Boolean, default: false },
+    token: String
   },
   {
     timestamps: {
